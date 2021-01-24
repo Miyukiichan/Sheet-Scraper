@@ -1,14 +1,14 @@
 #!/usr/bin/python
 
-import tkinter as tk
-from tkinter import messagebox
-import tkinter.ttk as ttk
+from PySide6.QtWidgets import QMessageBox, QWidget, QDialog, QLabel, QLineEdit, QComboBox, QPushButton, QGridLayout, QApplication, QMainWindow, QMenuBar, QMenu, QVBoxLayout, QListWidget, QListWidgetItem
+from PySide6.QtCore import Slot, Qt
 import validators
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import requests
 from bs4 import BeautifulSoup
 import os.path
+import sys
 
 
 class ControllerException(Exception):
@@ -36,7 +36,7 @@ class ClientSecretInvalid(ControllerException):
 
 
 def Error(message):
-    tk.messagebox.showerror("Error", message)
+    QMessageBox.critical(None, 'Error', message)
 
 
 def SetNames(controller, ssName, sName):
@@ -111,77 +111,84 @@ class Controller:
         return validators.url(url) and self.configDomain in url
 
 
-class OptionsDialog(tk.Toplevel):
+class OptionsDialog(QDialog):
     def btnOkClick(self):
-        if SetNames(self.controller, self.txtSpreadsheetName.get(), self.cbDefaultSheet.get()):
+        if SetNames(self.controller, self.txtSpreadsheetName.text(), self.cbDefaultSheet.currentText()):
             self.destroy()
 
     def __init__(self, parent, controller):
-        tk.Toplevel.__init__(self, parent)
+        QDialog.__init__(self, parent)
         self.controller = controller
         # Controls
-        self.lblSpreadsheetName = tk.Label(self, text="Spreadsheet Name")
-        self.lblDefaultSheet = tk.Label(self, text="Spreadsheet Name")
-        self.txtSpreadsheetName = tk.Entry(self, width=30)
-        self.txtSpreadsheetName.insert(0, controller.spreadsheetName)
-        self.cbDefaultSheet = ttk.Combobox(
-            self, width=27, values=controller.sheetNames)
-        self.cbDefaultSheet.current(
-            controller.sheetNames.index(controller.sheetName))
-        self.btnOK = tk.Button(self, text="OK", command=self.btnOkClick)
-
+        self.lblSpreadsheetName = QLabel("Spreadsheet Name")
+        self.lblDefaultSheet = QLabel("Default Sheet")
+        self.txtSpreadsheetName = QLineEdit()
+        self.txtSpreadsheetName.setText(controller.spreadsheetName)
+        self.cbDefaultSheet = QComboBox()
+        self.cbDefaultSheet.addItems(controller.sheetNames)
+        index = self.cbDefaultSheet.findText(controller.sheetName)
+        if index == -1:
+            index = 0
+        self.cbDefaultSheet.setCurrentIndex(index)
+        self.btnOK = QPushButton()
+        self.btnOK.setText("OK")
+        self.btnOK.clicked.connect(self.btnOkClick)
         # Layout
-        self.lblSpreadsheetName.grid(column=0, row=0)
-        self.lblDefaultSheet.grid(column=0, row=1)
-        self.txtSpreadsheetName.grid(column=1, row=0)
-        self.cbDefaultSheet.grid(column=1, row=1)
-        self.btnOK.grid(column=1, row=2)
+        layout = QGridLayout()
+        layout.addWidget(self.lblSpreadsheetName)
+        layout.addWidget(self.txtSpreadsheetName)
+        layout.addWidget(self.lblDefaultSheet)
+        layout.addWidget(self.cbDefaultSheet)
+        layout.addWidget(self.btnOK)
 
-    def show(self):
-        self.focus_set()
-        self.grab_set()
-        self.wait_window()
+        self.setLayout(layout)
 
 
-class Main(tk.Frame):
+class Main(QMainWindow):
     def __init__(self):
+        QMainWindow.__init__(self)
         # Main root
-        self.root = tk.Tk()
-        self.root.title("Sheet Scraper")
-        self.root.geometry('250x250')
-
-        # Menu Bar
-        menubar = tk.Menu(self.root)
-        self.root.config(menu=menubar)
+        self.setWindowTitle("Sheet Scraper")
+        self.resize(250, 250)
         # Menu Bar File
-        fileMenu = tk.Menu(menubar, tearoff=0)
-        fileMenu.add_command(label="Save", command=self.SaveFile)
-        fileMenu.add_command(label="Save As", command=self.SaveFileAs)
-        fileMenu.add_command(label="Open", command=self.OpenFile)
-        fileMenu.add_command(label="Exit", command=self.ExitApp)
-        menubar.add_cascade(label="File", menu=fileMenu)
-        # Menu Bar Edit
-        editMenu = tk.Menu(menubar, tearoff=0)
-        editMenu.add_command(label="Options", command=self.OpenOptions)
-        menubar.add_cascade(label="Edit", menu=editMenu)
+        fileMenu = QMenu('File', self)
+        fileMenu.addAction("Save").triggered.connect(self.SaveFile)
+        fileMenu.addAction("Save As").triggered.connect(self.SaveFileAs)
+        fileMenu.addAction("Open").triggered.connect(self.OpenFile)
+        fileMenu.addAction("Exit").triggered.connect(self.ExitApp)
+        self.menuBar().addMenu(fileMenu)
 
-        self.entries = tk.Frame(self.root)
+        # Menu Bar Edit
+        editMenu = QMenu('Edit', self)
+        editMenu.addAction("Options").triggered.connect(self.OpenOptions)
+        self.menuBar().addMenu(editMenu)
 
         # Controls
-        self.txt = tk.Entry(self.entries, width=20)
-        addUrlButton = tk.Button(self.entries, text="Add", command=self.AddUrl)
-        self.listbox = tk.Listbox(self.root)
-        goButton = tk.Button(self.root, text="Process urls",
-                             command=self.ScrapeURLs)
+        self.txt = QLineEdit()
+        self.listbox = QListWidget()
+
+        addUrlButton = QPushButton()
+        addUrlButton.setText("Add")
+        addUrlButton.clicked.connect(self.AddUrl)
+
+        goButton = QPushButton()
+        goButton.setText('Process URLs')
+        goButton.clicked.connect(self.ScrapeURLs)
 
         # Layout
-        self.txt.grid(column=0, row=0)
-        addUrlButton.grid(column=1, row=0)
-        self.entries.pack()
-        self.listbox.pack()
-        goButton.pack()
 
-        self.txt.focus()
+        layout = QVBoxLayout()
+        layout.addWidget(self.txt)
+        layout.addWidget(addUrlButton)
+        layout.addWidget(self.listbox)
+        layout.addWidget(goButton)
+
+        widget = QWidget()
+        widget.setLayout(layout)
+
+        self.setCentralWidget(widget)
+
+        self.txt.setFocus()
         try:
             self.controller = Controller()
         except ClientSecretNotFound:
@@ -194,28 +201,26 @@ class Main(tk.Frame):
             return
         self.controller.configName = "WHSmiths"
         self.controller.SetDomain("https://www.whsmith.co.uk/")
-        self.root.mainloop()
+        self.show()
 
     def OpenOptions(self):
-        OptionsDialog(self.root, self.controller).show()
+        OptionsDialog(self, self.controller).show()
 
     def AddUrl(self):
-        text = self.txt.get()
+        text = self.txt.text()
         if text == "":
             return
         if (not self.controller.ValidURL(text)):
-            if not tk.messagebox.askyesno("Use invalid URL", "The provided URL is not supported under the current configuration. Do you still wish to use it"):
+            if QMessageBox.question(self, "Use invalid URL", "The provided URL is not supported under the current configuration. Do you still wish to use it") != QMessageBox.StandardButton.Ok:
                 return
-        self.listbox.insert(self.listbox.size(), text)
+        QListWidgetItem(text, self.listbox)
 
     def ExitApp(self):
-        self.root.quit()
+        QApplication.quit()
 
     def ScrapeURLs(self):
-        for i in range(0, self.listbox.size()):
-            if i == 1:
-                break
-            url = self.listbox.get(i)
+        for i in range(0, self.listbox.count()):
+            url = self.listbox.item(i).text()
             source = requests.get(url).text
             soup = BeautifulSoup(source, 'lxml')
             fieldList = ["URL",
@@ -273,4 +278,7 @@ class Main(tk.Frame):
         return
 
 
+app = QApplication(sys.argv)
 mainWin = Main()
+
+sys.exit(app.exec_())
