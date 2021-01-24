@@ -110,6 +110,59 @@ class Controller:
     def ValidURL(self, url):
         return validators.url(url) and self.configDomain in url
 
+    def ScrapeURLs(self, urls):
+        fieldList = ["URL",
+                     ("TITLE", "h1", "h1 product-name"),
+                     ("AUTHOR", "a", "author"),
+                     ("PRICE", "span", "product-price-value")]
+        for url in urls:
+            source = requests.get(url).text
+            soup = BeautifulSoup(source, 'lxml')
+            for field in fieldList:
+                if type(field) != tuple and field.upper() == "URL":
+                    print(field + " - " + url)
+                    continue
+                if len(field) < 2:
+                    raise Exception(
+                        "Not enough required entries for field " + field)
+                fieldName = field[0]
+                tag = field[1]
+                className = ""
+                if len(field) >= 3:
+                    className = field[2]
+                tags = []
+                classes = []
+                tags = tag.split(".")
+                if className != "":
+                    classes = className.split(".")
+                    if len(tags) != len(classes):
+                        raise Exception(
+                            "Class/tag depth mismatch on field " + field)
+                if (len(tags) == 0):
+                    tags[0] = tag
+                    if className != "":
+                        classes[0] = className
+                if "" in tags:
+                    raise Exception(
+                        "Cannot declare empty tags for field " + fieldName)
+                current = 0
+                counter = 0
+                for tag in tags:
+                    if current == 0:
+                        current = soup
+                    className = ""
+                    if counter < len(classes):
+                        className = classes[counter]
+                    if className != "":
+                        current = current.findChild(tag, {"class": className})
+                    else:
+                        current = current.findChild(tag)
+                    counter += 1
+                if current == None:
+                    raise Exception(
+                        "Problem finding tags in webpage. Field " + fieldName)
+                print(fieldName + " - " + current.text.strip())
+
 
 class OptionsDialog(QDialog):
     def btnOkClick(self):
@@ -219,54 +272,10 @@ class Main(QMainWindow):
         QApplication.quit()
 
     def ScrapeURLs(self):
+        urls = []
         for i in range(0, self.listbox.count()):
-            url = self.listbox.item(i).text()
-            source = requests.get(url).text
-            soup = BeautifulSoup(source, 'lxml')
-            fieldList = ["URL",
-                         ("TITLE", "h1", "h1 product-name"),
-                         ("AUTHOR", "a", "author"),
-                         ("PRICE", "span.span", "product-price-value.")]
-            for field in fieldList:
-                if type(field) != tuple and field.upper() == "URL":
-                    print(field + " - " + url)
-                    continue
-                if len(field) < 2:
-                    raise Exception(
-                        "Not enough required entries for field " + field)
-                fieldName = field[0]
-                tag = field[1]
-                className = ""
-                if len(field) >= 3:
-                    className = field[2]
-                tags = []
-                classes = []
-                tags = tag.split(".")
-                if className != "":
-                    classes = className.split(".")
-                    if len(tags) != len(classes):
-                        raise Exception(
-                            "Class/tag depth mismatch on field " + field)
-                if (len(tags) == 0):
-                    tags[0] = tag
-                    if className != "":
-                        classes[0] = className
-                if "" in tags:
-                    raise Exception("Cannot declare empty tags")
-                current = 0
-                counter = 0
-                for tag in tags:
-                    if current == 0:
-                        current = soup
-                    className = ""
-                    if counter < len(classes):
-                        className = classes[counter]
-                    if className != "":
-                        current = current.findChild(tag, {"class": className})
-                    else:
-                        current = current.findChild(tag)
-                    counter += 1
-                print(fieldName + " - " + current.text.strip())
+            urls.append(self.listbox.item(i).text())
+        self.controller.ScrapeURLs(urls)
 
     def OpenFile(self):
         return
