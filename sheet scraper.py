@@ -129,7 +129,7 @@ class Controller:
                 continue
             for field in fieldList:
                 if type(field) != tuple and field.upper() == "URL":
-                    print(field + " - " + url)
+                    self.processed.append((url, field))
                     continue
                 if len(field) < 2:
                     errors.append(
@@ -290,11 +290,11 @@ class Main(QMainWindow):
         for i in range(0, self.listbox.count()):
             urls.append(self.listbox.item(i).text())
         errors = self.controller.ScrapeURLs(urls)
+        for line in self.controller.processed:
+            print(line)
         if len(errors) == 0:
             QMessageBox.information(
                 self, "Success", "Successfully processed all URLs with no errors")
-        for line in self.controller.processed:
-            print(line)
 
     def OpenFile(self):
         return
