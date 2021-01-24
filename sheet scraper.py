@@ -115,16 +115,26 @@ class Controller:
                      ("TITLE", "h1", "h1 product-name"),
                      ("AUTHOR", "a", "author"),
                      ("PRICE", "span", "product-price-value")]
+        errors = []
+        self.processed = []
         for url in urls:
-            source = requests.get(url).text
-            soup = BeautifulSoup(source, 'lxml')
+            if not validators.url(url):
+                errors.append((url, "Invalid URL"))
+                continue
+            try:
+                source = requests.get(url).text
+                soup = BeautifulSoup(source, 'lxml')
+            except:
+                errors.append((url, "Webpage does not exist or is empty"))
+                continue
             for field in fieldList:
                 if type(field) != tuple and field.upper() == "URL":
                     print(field + " - " + url)
                     continue
                 if len(field) < 2:
-                    raise Exception(
-                        "Not enough required entries for field " + field)
+                    errors.append(
+                        (url, field, "Not enough required entries for field"))
+                    continue
                 fieldName = field[0]
                 tag = field[1]
                 className = ""
@@ -136,15 +146,17 @@ class Controller:
                 if className != "":
                     classes = className.split(".")
                     if len(tags) != len(classes):
-                        raise Exception(
-                            "Class/tag depth mismatch on field " + field)
+                        errors.append((url, fieldName,
+                                       "Class/tag depth mismatch on field"))
+                        continue
                 if (len(tags) == 0):
                     tags[0] = tag
                     if className != "":
                         classes[0] = className
                 if "" in tags:
-                    raise Exception(
-                        "Cannot declare empty tags for field " + fieldName)
+                    errors.append(
+                        (url, fieldName, "Cannot declare empty tags for field"))
+                    continue
                 current = 0
                 counter = 0
                 for tag in tags:
@@ -159,9 +171,11 @@ class Controller:
                         current = current.findChild(tag)
                     counter += 1
                 if current == None:
-                    raise Exception(
-                        "Problem finding tags in webpage. Field " + fieldName)
-                print(fieldName + " - " + current.text.strip())
+                    errors.append(
+                        (url, fieldName, "Problem finding tags in webpage"))
+                    continue
+                self.processed.append((fieldName, current.text.strip()))
+        return errors
 
 
 class OptionsDialog(QDialog):
@@ -264,7 +278,7 @@ class Main(QMainWindow):
         if text == "":
             return
         if (not self.controller.ValidURL(text)):
-            if QMessageBox.question(self, "Use invalid URL", "The provided URL is not supported under the current configuration. Do you still wish to use it") != QMessageBox.StandardButton.Ok:
+            if QMessageBox.question(self, "Use invalid URL", "The provided URL is not supported under the current configuration. Do you still wish to use it") != QMessageBox.StandardButton.Yes:
                 return
         QListWidgetItem(text, self.listbox)
 
@@ -275,7 +289,12 @@ class Main(QMainWindow):
         urls = []
         for i in range(0, self.listbox.count()):
             urls.append(self.listbox.item(i).text())
-        self.controller.ScrapeURLs(urls)
+        errors = self.controller.ScrapeURLs(urls)
+        if len(errors) == 0:
+            QMessageBox.information(
+                self, "Success", "Successfully processed all URLs with no errors")
+        for line in self.controller.processed:
+            print(line)
 
     def OpenFile(self):
         return
