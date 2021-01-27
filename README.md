@@ -16,9 +16,6 @@ Work in progress at the moment but the goal of this is to scrape URLs from a lis
 
 ## Todo
 
-- Instead of scraping exceptions
-  - Process the scraped data afterwards
-    - Do the saving and print a log of the errors in a window
 - Starting column/row
 - Have gaps between the fields
 - Table in options for field definitions

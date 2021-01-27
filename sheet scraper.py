@@ -211,6 +211,19 @@ class OptionsDialog(QDialog):
         self.setLayout(layout)
 
 
+class ErrorLog(QDialog):
+    def __init__(self, errors):
+        QDialog.__init__(self)
+        self.setWindowTitle("Error, Log")
+        list = QListWidget(self)
+        for error in errors:
+            QListWidgetItem(' - '.join(error), list)
+        layout = QVBoxLayout(self)
+        layout.addWidget(list)
+        self.setLayout(layout)
+        self.exec()
+
+
 class Main(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
@@ -295,6 +308,8 @@ class Main(QMainWindow):
         if len(errors) == 0:
             QMessageBox.information(
                 self, "Success", "Successfully processed all URLs with no errors")
+        else:
+            ErrorLog(errors)
 
     def OpenFile(self):
         return
