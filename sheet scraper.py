@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from PySide6.QtWidgets import QMessageBox, QWidget, QDialog, QLabel, QLineEdit, QComboBox, QPushButton, QGridLayout, QApplication, QMainWindow, QMenuBar, QMenu, QVBoxLayout, QListWidget, QListWidgetItem
+from PySide6.QtWidgets import QMessageBox, QWidget, QDialog, QLabel, QLineEdit, QComboBox, QPushButton, QGridLayout, QApplication, QMainWindow, QMenuBar, QMenu, QVBoxLayout, QListWidget, QListWidgetItem, QFileDialog
 from PySide6.QtCore import Slot, Qt
 import validators
 import gspread
@@ -44,11 +44,11 @@ def SetNames(controller, ssName, sName):
     try:
         controller.setNames(ssName, sName)
     except NoSpreadSheetName:
-        Error("No spreadsheet name provided")
+        Error('No spreadsheet name provided')
     except SpreadSheetNotFound:
-        Error("Spreadsheet provided does not exist")
+        Error('Spreadsheet provided does not exist')
     except SheetNameNotFound:
-        Error("Sheet name does not exist in provided spreadsheet")
+        Error('Sheet name does not exist in provided spreadsheet')
     else:
         success = True
     return success
@@ -56,8 +56,8 @@ def SetNames(controller, ssName, sName):
 
 class Controller:
     def __init__(self):
-        scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
-                 "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets',
+                 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
         jsonFile = 'client_secret.json'
         if not os.path.isfile(jsonFile):
             raise ClientSecretNotFound
@@ -67,16 +67,16 @@ class Controller:
         except:
             raise ClientSecretInvalid
         self.client = gspread.authorize(creds)
-        self.spreadsheetName = ""
-        self.sheetName = ""
+        self.spreadsheetName = ''
+        self.sheetName = ''
         self.sheetNames = []
         self.sheet = 0
         self.spreadsheet = 0
-        self.configName = ""
-        self.configDomain = ""
+        self.configName = ''
+        self.configDomain = ''
 
     def setNames(self, ssName, sName):
-        if ssName == "":
+        if ssName == '':
             raise NoSpreadSheetName
         resetSheet = False
         if ssName != self.spreadsheetName:
@@ -89,10 +89,10 @@ class Controller:
                 self.sheetNames[i] = self.sheetNames[i].title
             self.spreadsheetName = ssName
             resetSheet = True
-            sName = ""
-            self.sheetName = ""
+            sName = ''
+            self.sheetName = ''
         if sName != self.sheetName or resetSheet:
-            if sName == "":
+            if sName == '':
                 self.sheetName = self.spreadsheet.sheet1.title
             else:
                 if self.sheetNames.count(sName) == 0:
@@ -111,68 +111,68 @@ class Controller:
         return validators.url(url) and self.configDomain in url
 
     def ScrapeURLs(self, urls):
-        fieldList = ["URL",
-                     ("TITLE", "h1", "h1 product-name"),
-                     ("AUTHOR", "a", "author"),
-                     ("PRICE", "span", "product-price-value")]
+        fieldList = ['URL',
+                     ('TITLE', 'h1', 'h1 product-name'),
+                     ('AUTHOR', 'a', 'author'),
+                     ('PRICE', 'span', 'product-price-value')]
         errors = []
         self.processed = []
         for url in urls:
             if not validators.url(url):
-                errors.append((url, "Invalid URL"))
+                errors.append((url, 'Invalid URL'))
                 continue
             try:
                 source = requests.get(url).text
                 soup = BeautifulSoup(source, 'lxml')
             except:
-                errors.append((url, "Webpage does not exist or is empty"))
+                errors.append((url, 'Webpage does not exist or is empty'))
                 continue
             for field in fieldList:
-                if type(field) != tuple and field.upper() == "URL":
+                if type(field) != tuple and field.upper() == 'URL':
                     self.processed.append((url, field))
                     continue
                 if len(field) < 2:
                     errors.append(
-                        (url, field, "Not enough required entries for field"))
+                        (url, field, 'Not enough required entries for field'))
                     continue
                 fieldName = field[0]
                 tag = field[1]
-                className = ""
+                className = ''
                 if len(field) >= 3:
                     className = field[2]
                 tags = []
                 classes = []
-                tags = tag.split(".")
-                if className != "":
-                    classes = className.split(".")
+                tags = tag.split('.')
+                if className != '':
+                    classes = className.split('.')
                     if len(tags) != len(classes):
                         errors.append((url, fieldName,
-                                       "Class/tag depth mismatch on field"))
+                                       'Class/tag depth mismatch on field'))
                         continue
                 if (len(tags) == 0):
                     tags[0] = tag
-                    if className != "":
+                    if className != '':
                         classes[0] = className
-                if "" in tags:
+                if '' in tags:
                     errors.append(
-                        (url, fieldName, "Cannot declare empty tags for field"))
+                        (url, fieldName, 'Cannot declare empty tags for field'))
                     continue
                 current = 0
                 counter = 0
                 for tag in tags:
                     if current == 0:
                         current = soup
-                    className = ""
+                    className = ''
                     if counter < len(classes):
                         className = classes[counter]
-                    if className != "":
-                        current = current.findChild(tag, {"class": className})
+                    if className != '':
+                        current = current.findChild(tag, {'class': className})
                     else:
                         current = current.findChild(tag)
                     counter += 1
                 if current == None:
                     errors.append(
-                        (url, fieldName, "Problem finding tags in webpage"))
+                        (url, fieldName, 'Problem finding tags in webpage'))
                     continue
                 self.processed.append((fieldName, current.text.strip()))
         return errors
@@ -181,14 +181,14 @@ class Controller:
 class OptionsDialog(QDialog):
     def btnOkClick(self):
         if SetNames(self.controller, self.txtSpreadsheetName.text(), self.cbDefaultSheet.currentText()):
-            self.destroy()
+            self.accept()
 
-    def __init__(self, parent, controller):
-        QDialog.__init__(self, parent)
+    def __init__(self, controller):
+        QDialog.__init__(self)
         self.controller = controller
         # Controls
-        self.lblSpreadsheetName = QLabel("Spreadsheet Name")
-        self.lblDefaultSheet = QLabel("Default Sheet")
+        self.lblSpreadsheetName = QLabel('Spreadsheet Name')
+        self.lblDefaultSheet = QLabel('Default Sheet')
         self.txtSpreadsheetName = QLineEdit()
         self.txtSpreadsheetName.setText(controller.spreadsheetName)
         self.cbDefaultSheet = QComboBox()
@@ -198,7 +198,7 @@ class OptionsDialog(QDialog):
             index = 0
         self.cbDefaultSheet.setCurrentIndex(index)
         self.btnOK = QPushButton()
-        self.btnOK.setText("OK")
+        self.btnOK.setText('OK')
         self.btnOK.clicked.connect(self.btnOkClick)
         # Layout
         layout = QGridLayout()
@@ -209,12 +209,14 @@ class OptionsDialog(QDialog):
         layout.addWidget(self.btnOK)
 
         self.setLayout(layout)
+        self.exec()
+        print("Here")
 
 
 class ErrorLog(QDialog):
     def __init__(self, errors):
         QDialog.__init__(self)
-        self.setWindowTitle("Error, Log")
+        self.setWindowTitle('Error, Log')
         list = QListWidget(self)
         for error in errors:
             QListWidgetItem(' - '.join(error), list)
@@ -228,27 +230,28 @@ class Main(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
         # Main root
-        self.setWindowTitle("Sheet Scraper")
+        self.setWindowTitle('Sheet Scraper')
         self.resize(250, 250)
         # Menu Bar File
         fileMenu = QMenu('File', self)
-        fileMenu.addAction("Save").triggered.connect(self.SaveFile)
-        fileMenu.addAction("Save As").triggered.connect(self.SaveFileAs)
-        fileMenu.addAction("Open").triggered.connect(self.OpenFile)
-        fileMenu.addAction("Exit").triggered.connect(self.ExitApp)
+        fileMenu.addAction('Save').triggered.connect(self.SaveFile)
+        fileMenu.addAction('Save As').triggered.connect(self.SaveFileAs)
+        fileMenu.addAction('Open').triggered.connect(self.OpenFile)
+        fileMenu.addAction('Exit').triggered.connect(self.ExitApp)
         self.menuBar().addMenu(fileMenu)
 
         # Menu Bar Edit
         editMenu = QMenu('Edit', self)
-        editMenu.addAction("Options").triggered.connect(self.OpenOptions)
+        editMenu.addAction('Options').triggered.connect(self.OpenOptions)
         self.menuBar().addMenu(editMenu)
 
         # Controls
         self.txt = QLineEdit()
+        self.txt.returnPressed.connect(self.AddUrl)
         self.listbox = QListWidget()
 
         addUrlButton = QPushButton()
-        addUrlButton.setText("Add")
+        addUrlButton.setText('Add')
         addUrlButton.clicked.connect(self.AddUrl)
 
         goButton = QPushButton()
@@ -272,26 +275,26 @@ class Main(QMainWindow):
         try:
             self.controller = Controller()
         except ClientSecretNotFound:
-            Error("No file client_secret.json found in working directory")
+            Error('No file client_secret.json found in working directory')
             return
         except ClientSecretInvalid:
-            Error("Client secret is invalid")
+            Error('Client secret is invalid')
             return
-        if not SetNames(self.controller, "Books", "Welsh History"):
+        if not SetNames(self.controller, 'Books', 'Welsh History'):
             return
-        self.controller.configName = "WHSmiths"
-        self.controller.SetDomain("https://www.whsmith.co.uk/")
+        self.controller.configName = 'WHSmiths'
+        self.controller.SetDomain('https://www.whsmith.co.uk/')
         self.show()
 
     def OpenOptions(self):
-        OptionsDialog(self, self.controller).show()
+        OptionsDialog(self.controller)
 
     def AddUrl(self):
         text = self.txt.text()
-        if text == "":
+        if text == '':
             return
         if (not self.controller.ValidURL(text)):
-            if QMessageBox.question(self, "Use invalid URL", "The provided URL is not supported under the current configuration. Do you still wish to use it") != QMessageBox.StandardButton.Yes:
+            if QMessageBox.question(self, 'Use invalid URL', 'The provided URL is not supported under the current configuration. Do you still wish to use it') != QMessageBox.StandardButton.Yes:
                 return
         QListWidgetItem(text, self.listbox)
 
@@ -307,12 +310,27 @@ class Main(QMainWindow):
             print(line)
         if len(errors) == 0:
             QMessageBox.information(
-                self, "Success", "Successfully processed all URLs with no errors")
+                self, 'Success', 'Successfully processed all URLs with no errors')
         else:
             ErrorLog(errors)
 
     def OpenFile(self):
-        return
+        fileName = QFileDialog.getOpenFileName(self, 'Import URL list')[0]
+        if not os.path.isfile(fileName):
+            return
+        self.listbox.clear()
+        reader = open(fileName, 'r')
+        lines = []
+        for line in reader:
+            if not self.controller.ValidURL(line):
+                continue
+            lines.append(line.strip())
+        reader.close()
+        if len(lines) == 0:
+            Error('No valid URLs found in file')
+            return
+        for line in lines:
+            QListWidgetItem(line, self.listbox)
 
     def SaveFile(self):
         return
