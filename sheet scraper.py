@@ -117,15 +117,19 @@ class Controller:
                      ('PRICE', 'span', 'product-price-value')]
         errors = []
         self.processed = []
+        self.processedURLs = []
         for url in urls:
+            fail = False
             if not validators.url(url):
                 errors.append((url, 'Invalid URL'))
+                fail = True
                 continue
             try:
                 source = requests.get(url).text
                 soup = BeautifulSoup(source, 'lxml')
             except:
                 errors.append((url, 'Webpage does not exist or is empty'))
+                fail = True
                 continue
             for field in fieldList:
                 if type(field) != tuple and field.upper() == 'URL':
@@ -134,6 +138,7 @@ class Controller:
                 if len(field) < 2:
                     errors.append(
                         (url, field, 'Not enough required entries for field'))
+                    fail = True
                     continue
                 fieldName = field[0]
                 tag = field[1]
@@ -146,8 +151,9 @@ class Controller:
                 if className != '':
                     classes = className.split('.')
                     if len(tags) != len(classes):
-                        errors.append((url, fieldName,
-                                       'Class/tag depth mismatch on field'))
+                        errors.append(
+                            (url, fieldName, 'Class/tag depth mismatch on field'))
+                        fail = True
                         continue
                 if (len(tags) == 0):
                     tags[0] = tag
@@ -156,6 +162,7 @@ class Controller:
                 if '' in tags:
                     errors.append(
                         (url, fieldName, 'Cannot declare empty tags for field'))
+                    fail = True
                     continue
                 current = 0
                 counter = 0
@@ -173,8 +180,11 @@ class Controller:
                 if current == None:
                     errors.append(
                         (url, fieldName, 'Problem finding tags in webpage'))
+                    fail = True
                     continue
                 self.processed.append((fieldName, current.text.strip()))
+            if not fail:
+                self.processedURLs.append(url)
         return errors
 
 
@@ -210,7 +220,6 @@ class OptionsDialog(QDialog):
 
         self.setLayout(layout)
         self.exec()
-        print("Here")
 
 
 class ErrorLog(QDialog):
@@ -310,8 +319,10 @@ class Main(QMainWindow):
             print(line)
         if len(errors) == 0:
             QMessageBox.information(
-                self, 'Success', 'Successfully processed all URLs with no errors')
+                self, 'Success', 'Successfully processed ' + str(len(self.controller.processedURLs)) + ' URLs with no errors')
         else:
+            QMessageBox.critical(self, 'Errors', 'Out of ' + str(len(urls)) +
+                                 ' URLS, ' + str(len(urls) - len(self.controller.processedURLs)) + ' failed')
             ErrorLog(errors)
 
     def OpenFile(self):
