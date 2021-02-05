@@ -111,13 +111,12 @@ class Controller:
         return validators.url(url) and self.configDomain in url
 
     def ScrapeURLs(self, urls):
-        fieldList = ['URL',
-                     ('TITLE', 'h1', 'h1 product-name'),
-                     ('AUTHOR', 'a', 'author'),
-                     ('PRICE', 'span', 'product-price-value')]
+        self.fieldList = ['URL',
+                          ('TITLE', 'h1', 'h1 product-name'),
+                          ('AUTHOR', 'a', 'author'),
+                          ('PRICE', 'span', 'product-price-value')]
         errors = []
-        self.processed = []
-        self.processedURLs = []
+        self.processedURLs = {}
         for url in urls:
             fail = False
             if not validators.url(url):
@@ -131,9 +130,10 @@ class Controller:
                 errors.append((url, 'Webpage does not exist or is empty'))
                 fail = True
                 continue
-            for field in fieldList:
+            for field in self.fieldList:
                 if type(field) != tuple and field.upper() == 'URL':
-                    self.processed.append((url, field))
+                    #self.processed.append((field, url))
+                    self.processedURLs[url] = []
                     continue
                 if len(field) < 2:
                     errors.append(
@@ -182,10 +182,20 @@ class Controller:
                         (url, fieldName, 'Problem finding tags in webpage'))
                     fail = True
                     continue
-                self.processed.append((fieldName, current.text.strip()))
-            if not fail:
-                self.processedURLs.append(url)
+                self.processedURLs[url].append(
+                    (fieldName, current.text.strip()))
         return errors
+
+    def Store(self):
+        append_to = len(self.sheet.get_all_values()) + 1
+        for url in self.processedURLs:
+            self.sheet.insert_row([], append_to)
+            column = self.sheet.find('URL')
+            self.sheet.update_cell(append_to, column.col, url)
+            for field in self.processedURLs[url]:
+                column = self.sheet.find(field[0])
+                self.sheet.update_cell(append_to, column.col, field[1])
+            append_to += 1
 
 
 class OptionsDialog(QDialog):
@@ -218,19 +228,6 @@ class OptionsDialog(QDialog):
         layout.addWidget(self.cbDefaultSheet)
         layout.addWidget(self.btnOK)
 
-        self.setLayout(layout)
-        self.exec()
-
-
-class ErrorLog(QDialog):
-    def __init__(self, errors):
-        QDialog.__init__(self)
-        self.setWindowTitle('Error, Log')
-        list = QListWidget(self)
-        for error in errors:
-            QListWidgetItem(' - '.join(error), list)
-        layout = QVBoxLayout(self)
-        layout.addWidget(list)
         self.setLayout(layout)
         self.exec()
 
@@ -314,16 +311,8 @@ class Main(QMainWindow):
         urls = []
         for i in range(0, self.listbox.count()):
             urls.append(self.listbox.item(i).text())
-        errors = self.controller.ScrapeURLs(urls)
-        for line in self.controller.processed:
-            print(line)
-        if len(errors) == 0:
-            QMessageBox.information(
-                self, 'Success', 'Successfully processed ' + str(len(self.controller.processedURLs)) + ' URLs with no errors')
-        else:
-            QMessageBox.critical(self, 'Errors', 'Out of ' + str(len(urls)) +
-                                 ' URLS, ' + str(len(urls) - len(self.controller.processedURLs)) + ' failed')
-            ErrorLog(errors)
+        self.controller.ScrapeURLs(urls)
+        self.controller.Store()
 
     def OpenFile(self):
         fileName = QFileDialog.getOpenFileName(self, 'Import URL list')[0]
