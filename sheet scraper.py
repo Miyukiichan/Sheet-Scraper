@@ -55,6 +55,9 @@ def SetNames(controller, ssName, sName):
 
 
 class Controller:
+    FieldName = 0
+    FieldValue = 1
+
     def __init__(self):
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets',
                  'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
@@ -74,6 +77,10 @@ class Controller:
         self.spreadsheet = 0
         self.configName = ''
         self.configDomain = ''
+        self.fieldList = ['URL',
+                          ('TITLE', 'h1', 'h1 product-name'),
+                          ('AUTHOR', 'a', 'author'),
+                          ('PRICE', 'span', 'product-price-value')]
 
     def setNames(self, ssName, sName):
         if ssName == '':
@@ -111,34 +118,25 @@ class Controller:
         return validators.url(url) and self.configDomain in url
 
     def ScrapeURLs(self, urls):
-        self.fieldList = ['URL',
-                          ('TITLE', 'h1', 'h1 product-name'),
-                          ('AUTHOR', 'a', 'author'),
-                          ('PRICE', 'span', 'product-price-value')]
         errors = []
         self.processedURLs = {}
         for url in urls:
-            fail = False
             if not validators.url(url):
                 errors.append((url, 'Invalid URL'))
-                fail = True
                 continue
             try:
                 source = requests.get(url).text
                 soup = BeautifulSoup(source, 'lxml')
             except:
                 errors.append((url, 'Webpage does not exist or is empty'))
-                fail = True
                 continue
             for field in self.fieldList:
                 if type(field) != tuple and field.upper() == 'URL':
-                    #self.processed.append((field, url))
                     self.processedURLs[url] = []
                     continue
                 if len(field) < 2:
                     errors.append(
                         (url, field, 'Not enough required entries for field'))
-                    fail = True
                     continue
                 fieldName = field[0]
                 tag = field[1]
@@ -153,7 +151,6 @@ class Controller:
                     if len(tags) != len(classes):
                         errors.append(
                             (url, fieldName, 'Class/tag depth mismatch on field'))
-                        fail = True
                         continue
                 if (len(tags) == 0):
                     tags[0] = tag
@@ -162,7 +159,6 @@ class Controller:
                 if '' in tags:
                     errors.append(
                         (url, fieldName, 'Cannot declare empty tags for field'))
-                    fail = True
                     continue
                 current = 0
                 counter = 0
@@ -180,7 +176,6 @@ class Controller:
                 if current == None:
                     errors.append(
                         (url, fieldName, 'Problem finding tags in webpage'))
-                    fail = True
                     continue
                 self.processedURLs[url].append(
                     (fieldName, current.text.strip()))
@@ -188,14 +183,26 @@ class Controller:
 
     def Store(self):
         append_to = len(self.sheet.get_all_values()) + 1
+        values = []
+        field_indexes = {}
+        for field in self.fieldList:
+            if type(field) == tuple:
+                fieldName = field[Controller.FieldName]
+            else:
+                fieldName = field
+            field_indexes[fieldName] = self.sheet.find(fieldName).col - 1
         for url in self.processedURLs:
-            self.sheet.insert_row([], append_to)
-            column = self.sheet.find('URL')
-            self.sheet.update_cell(append_to, column.col, url)
+            values.append([])
+            value_index = len(values) - 1
+            for i in range(0, len(self.fieldList)):
+                values[value_index].append('')
+            values[value_index].insert(field_indexes['URL'], url)
             for field in self.processedURLs[url]:
-                column = self.sheet.find(field[0])
-                self.sheet.update_cell(append_to, column.col, field[1])
-            append_to += 1
+                fieldName = field[Controller.FieldName]
+                fieldValue = field[Controller.FieldValue]
+                values[value_index].insert(
+                    field_indexes[fieldName], fieldValue)
+        self.sheet.insert_rows(values, append_to)
 
 
 class OptionsDialog(QDialog):

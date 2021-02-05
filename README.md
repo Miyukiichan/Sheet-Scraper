@@ -16,16 +16,18 @@ Work in progress at the moment but the goal of this is to scrape URLs from a lis
 
 ## Todo
 
-- Clear/edit list
-- Shortcut keys
-- Table in options for field definitions
+- Scraping speedups
+  - Check tag validity once (not for every URL) and store it in dictionary
 - Handle rate limits
-  - Minimise API calls
+  - Optional field indexing so find() is not needed
   - Cache remaining fields so not to re-read
 - Options file IO
 - List file IO
   - List file saving + save as
-  - Drag and drop files
+  - Drag and drop file
+- Clear/edit list
+- Shortcut keys
+- Table in options for field definitionss
 - Arrange UI
 - CLI options
 - Testing mode that outputs results to the screen instead of updating the spreadsheet
