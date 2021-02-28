@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from PySide6.QtWidgets import QMessageBox, QWidget, QDialog, QLabel, QLineEdit, QComboBox, QPushButton, QGridLayout, QApplication, QMainWindow, QMenuBar, QMenu, QVBoxLayout, QListWidget, QListWidgetItem, QFileDialog
-from PySide6.QtCore import Slot, Qt
+from PySide6.QtCore import Slot, Qt, QSettings
 import validators
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -204,6 +204,32 @@ class Controller:
                     field_indexes[fieldName], fieldValue)
         self.sheet.insert_rows(values, append_to)
 
+    def LoadSettings(self, fileName):
+        settings = Settings()
+        return settings.Load(fileName)
+
+    def SaveSettings(self, fileName):
+        settings = Settings()
+        return settings.Save(self, fileName)
+
+
+class Settings:
+    def Load(self, fileName):
+        if fileName == '':
+            return
+        settings = QSettings(fileName, QSettings.IniFormat)
+        self.ssName = settings.value('SpreadSheetName')
+        self.sName = settings.value('SheetName')
+        return self
+
+    def Save(self, controller, fileName):
+        if fileName == '':
+            return False
+        settings = QSettings(fileName, QSettings.IniFormat)
+        settings.setValue('SpreadSheetName', controller.spreadsheetName)
+        settings.setValue('SheetName', controller.sheetName)
+        return True
+
 
 class OptionsDialog(QDialog):
     def btnOkClick(self):
@@ -236,6 +262,7 @@ class OptionsDialog(QDialog):
         layout.addWidget(self.btnOK)
 
         self.setLayout(layout)
+        self.setWindowTitle('Sheet Scraper - Options')
         self.exec()
 
 
@@ -250,6 +277,10 @@ class Main(QMainWindow):
         fileMenu.addAction('Save').triggered.connect(self.SaveFile)
         fileMenu.addAction('Save As').triggered.connect(self.SaveFileAs)
         fileMenu.addAction('Open').triggered.connect(self.OpenFile)
+        fileMenu.addAction('Load Settings').triggered.connect(
+            self.LoadSettings)
+        fileMenu.addAction('Save Settings').triggered.connect(
+            self.SaveSettings)
         fileMenu.addAction('Exit').triggered.connect(self.ExitApp)
         self.menuBar().addMenu(fileMenu)
 
@@ -301,6 +332,21 @@ class Main(QMainWindow):
 
     def OpenOptions(self):
         OptionsDialog(self.controller)
+
+    def LoadSettings(self):
+        fileName = QFileDialog.getOpenFileName(self, 'Load Settings File')[0]
+        if not os.path.isfile(fileName):
+            return
+        settings = self.controller.LoadSettings(fileName)
+        SetNames(self.controller, settings.ssName, settings.sName)
+
+    def SaveSettings(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Save Settings File')[0]
+        if fileName == '':
+            return
+        if(self.controller.SaveSettings(fileName)):
+            QMessageBox.information(
+                self, 'Saved File', 'Saved settings file successfully in ' + fileName)
 
     def AddUrl(self):
         text = self.txt.text()
