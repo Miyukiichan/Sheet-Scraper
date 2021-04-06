@@ -228,6 +228,19 @@ class Settings:
         settings = QSettings(fileName, QSettings.IniFormat)
         settings.setValue('SpreadSheetName', controller.spreadsheetName)
         settings.setValue('SheetName', controller.sheetName)
+        settings.beginWriteArray('Fields')
+        for i in range(0, len(controller.fieldList)):
+            settings.setArrayIndex(i)
+            field = controller.fieldList[i]
+            if type(field) != tuple:
+                settings.setValue('Name', field)
+            elif len(field) > 0:
+                settings.setValue('Name', field[0])
+                if len(field) > 1:
+                    settings.setValue('Tags', field[1])
+                if len(field) > 2:
+                    settings.setValue('Classes', field[2])
+        settings.endArray()
         return True
 
 
@@ -341,9 +354,12 @@ class Main(QMainWindow):
         SetNames(self.controller, settings.ssName, settings.sName)
 
     def SaveSettings(self):
-        fileName = QFileDialog.getSaveFileName(self, 'Save Settings File')[0]
+        fileName = QFileDialog.getSaveFileName(
+            self, 'Save Settings File', '', "Settings Ini (*.ini)")[0]
         if fileName == '':
             return
+        if fileName.find('.') == -1:
+            fileName += '.ini'
         if(self.controller.SaveSettings(fileName)):
             QMessageBox.information(
                 self, 'Saved File', 'Saved settings file successfully in ' + fileName)
